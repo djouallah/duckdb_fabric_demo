@@ -1,0 +1,113 @@
+name: Download and Update Files
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC (adjust as needed)
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allows manual trigger
+  push:
+    branches: [ main ] # Remove this if you don't want it to run on push
+
+jobs:
+  download-files:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests
+    
+    - name: Create download script
+      run: |
+        cat > download_script.py << 'EOF'
+        import os
+        import re
+        import glob
+        import requests
+        from urllib.request import urlopen
+
+        def download(url, path):
+            if not os.path.exists(path):
+                os.makedirs(path, exist_ok=True)
+            
+            try:
+                result = urlopen(url).read().decode('utf-8')
+                pattern = re.compile(r'[\w.]*.zip')
+                filelist1 = pattern.findall(result)
+                filelist_unique = dict.fromkeys(filelist1)
+                filelist = sorted(filelist_unique, reverse=True)
+                current = [os.path.basename(x) for x in glob.glob(path + '*.zip')]
+                files_to_upload = list(set(filelist) - set(current))
+                files_to_upload = list(dict.fromkeys(files_to_upload))
+                
+                print(f'{len(files_to_upload)} New File(s) Found')
+                
+                if len(files_to_upload) != 0:
+                    for x in files_to_upload:
+                        print(f'Downloading: {x}')
+                        with requests.get(url + x, stream=True) as resp:
+                            if resp.ok:
+                                with open(f"{path}{x}", "wb") as f:
+                                    for chunk in resp.iter_content(chunk_size=4096):
+                                        f.write(chunk)
+                                print(f'Successfully downloaded: {x}')
+                            else:
+                                print(f'Failed to download: {x} (Status: {resp.status_code})')
+                else:
+                    print('No new files to download')
+                    
+                return len(files_to_upload)
+                
+            except Exception as e:
+                print(f'Error during download: {str(e)}')
+                return 0
+
+        if __name__ == "__main__":
+            # Create the github/year directory if it doesn't exist
+            new_files = download("https://nemweb.com.au/Reports/Current/Daily_Reports/", 'github/year/')
+            
+            # Set output for next step
+            with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                f.write(f'new_files={new_files}\n')
+        EOF
+    
+    - name: Run download script
+      id: download
+      run: python download_script.py
+    
+    - name: Check for changes
+      id: git-check
+      run: |
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "changes=true" >> $GITHUB_OUTPUT
+        else
+          echo "changes=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Commit and push if changes
+      if: steps.git-check.outputs.changes == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add github/year/
+        git commit -m "Auto-update: Downloaded ${{ steps.download.outputs.new_files }} new file(s) - $(date +'%Y-%m-%d %H:%M:%S UTC')"
+        git push
+    
+    - name: Summary
+      run: |
+        if [ "${{ steps.git-check.outputs.changes }}" == "true" ]; then
+          echo "✅ Downloaded and committed ${{ steps.download.outputs.new_files }} new file(s)"
+        else
+          echo "ℹ️ No new files found or no changes to commit"
+        fi
