@@ -5,8 +5,6 @@ on:
     # Run daily at 7 AM Brisbane time (21:00 UTC)
     - cron: '0 21 * * *'
   workflow_dispatch: # Allows manual trigger
-  push:
-    branches: [ main ] # Remove this if you don't want it to run on push
 
 jobs:
   download-files:
