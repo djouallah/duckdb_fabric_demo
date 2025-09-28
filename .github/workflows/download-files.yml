@@ -2,8 +2,8 @@ name: Download and Update Files
 
 on:
   schedule:
-    # Run daily at 2 AM UTC (adjust as needed)
-    - cron: '0 2 * * *'
+    # Run daily at 7 AM Brisbane time (21:00 UTC)
+    - cron: '0 21 * * *'
   workflow_dispatch: # Allows manual trigger
   push:
     branches: [ main ] # Remove this if you don't want it to run on push
@@ -36,46 +36,114 @@ jobs:
         import glob
         import requests
         from urllib.request import urlopen
+        from collections import defaultdict
 
-        def download(url, path):
-            if not os.path.exists(path):
-                os.makedirs(path, exist_ok=True)
+        def extract_year_from_filename(filename):
+            """Extract year from filename like PUBLIC_DAILY_201804010000_20180402040501.zip"""
+            # Look for pattern like PUBLIC_DAILY_YYYYMMDDHHII_
+            match = re.search(r'PUBLIC_DAILY_(\d{4})\d{8}_', filename)
+            if match:
+                return match.group(1)
+            return None
+
+        def get_existing_files_by_year(base_path):
+            """Get existing files organized by year"""
+            existing_files = defaultdict(set)
             
+            # Look for files in data/archive/*/
+            pattern = os.path.join(base_path, '*', '*.zip')
+            for filepath in glob.glob(pattern):
+                filename = os.path.basename(filepath)
+                year_dir = os.path.basename(os.path.dirname(filepath))
+                existing_files[year_dir].add(filename)
+            
+            return existing_files
+
+        def download_and_organize(url, base_path):
+            """Download files and organize them by year"""
             try:
+                # Fetch file list from URL
+                print(f"Fetching file list from: {url}")
                 result = urlopen(url).read().decode('utf-8')
-                pattern = re.compile(r'[\w.]*.zip')
-                filelist1 = pattern.findall(result)
-                filelist_unique = dict.fromkeys(filelist1)
-                filelist = sorted(filelist_unique, reverse=True)
-                current = [os.path.basename(x) for x in glob.glob(path + '*.zip')]
-                files_to_upload = list(set(filelist) - set(current))
-                files_to_upload = list(dict.fromkeys(files_to_upload))
+                pattern = re.compile(r'[\w.-]*\.zip')
+                all_files = pattern.findall(result)
                 
-                print(f'{len(files_to_upload)} New File(s) Found')
+                # Remove duplicates and sort
+                unique_files = list(dict.fromkeys(all_files))
+                print(f"Found {len(unique_files)} files on server")
                 
-                if len(files_to_upload) != 0:
-                    for x in files_to_upload:
-                        print(f'Downloading: {x}')
-                        with requests.get(url + x, stream=True) as resp:
-                            if resp.ok:
-                                with open(f"{path}{x}", "wb") as f:
-                                    for chunk in resp.iter_content(chunk_size=4096):
-                                        f.write(chunk)
-                                print(f'Successfully downloaded: {x}')
-                            else:
-                                print(f'Failed to download: {x} (Status: {resp.status_code})')
-                else:
-                    print('No new files to download')
+                # Get existing files organized by year
+                existing_files = get_existing_files_by_year(base_path)
+                
+                # Organize files by year and determine what needs downloading
+                files_by_year = defaultdict(list)
+                total_new_files = 0
+                
+                for filename in unique_files:
+                    year = extract_year_from_filename(filename)
+                    if year:
+                        # Check if file already exists in the year directory
+                        if filename not in existing_files.get(year, set()):
+                            files_by_year[year].append(filename)
+                            total_new_files += 1
+                        else:
+                            print(f"File already exists: {filename} (year: {year})")
+                    else:
+                        print(f"Could not extract year from filename: {filename}")
+                
+                print(f"Total new files to download: {total_new_files}")
+                
+                downloaded_count = 0
+                
+                # Download files organized by year
+                for year, files_to_download in files_by_year.items():
+                    if not files_to_download:
+                        continue
+                        
+                    year_path = os.path.join(base_path, year)
+                    if not os.path.exists(year_path):
+                        os.makedirs(year_path, exist_ok=True)
+                        print(f"Created directory: {year_path}")
                     
-                return len(files_to_upload)
+                    print(f"\nDownloading {len(files_to_download)} files for year {year}:")
+                    
+                    for filename in files_to_download:
+                        try:
+                            print(f"  Downloading: {filename}")
+                            file_url = url + filename
+                            local_path = os.path.join(year_path, filename)
+                            
+                            with requests.get(file_url, stream=True, timeout=30) as resp:
+                                resp.raise_for_status()
+                                
+                                with open(local_path, "wb") as f:
+                                    for chunk in resp.iter_content(chunk_size=8192):
+                                        if chunk:
+                                            f.write(chunk)
+                                
+                                print(f"  ✅ Successfully downloaded: {filename}")
+                                downloaded_count += 1
+                                
+                        except Exception as e:
+                            print(f"  ❌ Failed to download {filename}: {str(e)}")
+                
+                print(f"\nDownload summary: {downloaded_count}/{total_new_files} files downloaded successfully")
+                return downloaded_count
                 
             except Exception as e:
-                print(f'Error during download: {str(e)}')
+                print(f"❌ Error during download process: {str(e)}")
                 return 0
 
         if __name__ == "__main__":
-            # Create the github/year directory if it doesn't exist
-            new_files = download("https://nemweb.com.au/Reports/Current/Daily_Reports/", 'github/year/')
+            base_path = "data/archive"
+            url = "https://nemweb.com.au/Reports/Current/Daily_Reports/"
+            
+            print("Starting download and organization process...")
+            print(f"Source URL: {url}")
+            print(f"Base path: {base_path}")
+            print("-" * 60)
+            
+            new_files = download_and_organize(url, base_path)
             
             # Set output for next step
             with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
@@ -100,8 +168,8 @@ jobs:
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git add github/year/
-        git commit -m "Auto-update: Downloaded ${{ steps.download.outputs.new_files }} new file(s) - $(date +'%Y-%m-%d %H:%M:%S UTC')"
+        git add data/archive/
+        git commit -m "Auto-update: Downloaded ${{ steps.download.outputs.new_files }} new file(s) organized by year - $(date +'%Y-%m-%d %H:%M:%S UTC')"
         git push
     
     - name: Summary
