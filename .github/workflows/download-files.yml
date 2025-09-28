@@ -182,9 +182,8 @@ jobs:
     - name: Commit and push if changes
       if: steps.git-check.outputs.changes == 'true'
       run: |
-        # Configure sparse-checkout to include our new files
-        git sparse-checkout set .github/ data/archive/
-        git add data/archive/
+        # Force add new files without expanding sparse-checkout
+        git add --force data/archive/
         git commit -m "Auto-update: Downloaded ${{ steps.download.outputs.new_files }} new file(s) organized by year - $(date +'%Y-%m-%d %H:%M:%S UTC')"
         git push
     
