@@ -15,7 +15,7 @@ jobs:
     steps:
     - name: Minimal checkout (skip existing files)
       run: |
-        git clone --depth=1 --filter=blob:none --sparse ${{ github.server_url }}/${{ github.repository }} .
+        git clone --depth=1 --filter=blob:none --sparse https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} .
         git sparse-checkout init --cone
         git sparse-checkout set .github/
         git config --local user.email "action@github.com"
