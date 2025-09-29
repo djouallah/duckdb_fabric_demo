@@ -113,3 +113,22 @@ Once your data is loading:
 ### Australian Energy Market
 - [AEMO Official Website](https://aemo.com.au/)
 - [Understanding the NEM](https://aemo.com.au/en/energy-systems/electricity/national-electricity-market-nem)
+
+
+
+
+## 🔧 How It Works
+
+This solution is a simple scheduler that automates data ingestion:
+
+1. **Reads Configuration Files**: The notebook reads SQL and Python files from this GitHub repository
+2. **Executes Scripts**: Runs the scripts in sequence to fetch and process Australian electricity market data
+3. **Generates Delta Tables**: Automatically creates and updates Delta tables in your Lakehouse
+4. **Incremental Processing**: Tracks progress and resumes where it left off on each run
+
+The beauty of this approach is that all your data logic is stored in the GitHub repository as SQL and Python files, while the notebook acts as the orchestration engine that brings it all together, it would be even easier when duckdb add support for writing delta
+
+<img width="1502" height="763" alt="image" src="https://github.com/user-attachments/assets/4f41bb98-637a-4781-a868-c97b317e4e6b" />
+
+
+
