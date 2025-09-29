@@ -35,12 +35,13 @@ The dataset includes:
 Before running the notebook, you need to configure it for your environment:
 
 1. Open the notebook in your Fabric workspace
-2. Find the parameters section at the top
-3. Update the following values:
+2. attach the lakehouse ( duckdb read performance from abfss is not great, attaching will give way better performance)
+3. Find the parameters section at the top, where you want to store the delta table
+4. Update the following values:
    - **Workspace**: Your Fabric workspace name (no spaces)
    - **Lakehouse**: Your lakehouse name (no spaces)
    - **Schema**: Your schema name (no spaces)
-4. **⚠️ IMPORTANT**: Ensure none of these names contain spaces
+5. **⚠️ IMPORTANT**: Ensure none of these names contain spaces
    - Use underscores instead: `my_workspace` not `my workspace`
 
      <img width="1352" height="193" alt="image" src="https://github.com/user-attachments/assets/c26546a7-29e3-49a3-93ba-d73724bc27e3" />
