@@ -146,7 +146,7 @@ def scraping(urls: List[str], folders: List[str], totalfiles: int, ws: str, lh: 
             return "week=unknown"
 
         # Step 2: Get list of .zip files based on URL type
-        github_zip_url_map = None
+        github_zip_url_map = {}
         try:
             if is_github_tree_url(url):
                 # Use GitHub API to list directory contents
@@ -157,6 +157,11 @@ def scraping(urls: List[str], folders: List[str], totalfiles: int, ws: str, lh: 
                     zip_files_info = recursively_find_zip_files(api_url)
                     if not zip_files_info:
                         return f"{url} - No zip files found in directory tree", 0
+                    # zip_files_info contains (filename, relative_path, download_url)
+                    # Sort by filename
+                    zip_files_info.sort(key=lambda x: x[0], reverse=True)
+                    all_files = [filename for filename, relative_path, download_url in zip_files_info]
+                    github_zip_url_map = {filename: download_url for filename, relative_path, download_url in zip_files_info}
                 else:
                     # Single directory search (original behavior)
                     api_resp = requests.get(api_url, timeout=30)
@@ -170,10 +175,10 @@ def scraping(urls: List[str], folders: List[str], totalfiles: int, ws: str, lh: 
                     for item in items:
                         if item.get("type") == "file" and item.get("name", "").endswith(".zip"):
                             zip_files_info.append((item["name"], item["download_url"]))
-                
-                zip_files_info.sort(key=lambda x: x[0], reverse=True)
-                all_files = [name for name, _ in zip_files_info]
-                github_zip_url_map = dict(zip_files_info)
+                    
+                    zip_files_info.sort(key=lambda x: x[0], reverse=True)
+                    all_files = [name for name, _ in zip_files_info]
+                    github_zip_url_map = dict(zip_files_info)
             else:
                 # Original: parse HTML directory listing
                 html_content = urlopen(url).read().decode("utf-8")
