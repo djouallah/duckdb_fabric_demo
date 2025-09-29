@@ -39,7 +39,7 @@ def github_tree_to_api_url(url: str) -> str:
     return f"https://api.github.com/repos/{user}/{repo}/contents/{path}?ref={branch}"
 
 
-def recursively_find_zip_files(api_url: str, base_path: str = "") -> List[Tuple[str, str]]:
+def recursively_find_zip_files(api_url: str, base_path: str = "") -> List[Tuple[str, str, str]]:
     """
     Recursively find all .zip files in a GitHub directory and subdirectories.
     
@@ -48,7 +48,10 @@ def recursively_find_zip_files(api_url: str, base_path: str = "") -> List[Tuple[
         base_path: Relative path prefix for nested directories
     
     Returns:
-        List of tuples (relative_path, download_url) for each zip file found
+        List of tuples (filename, relative_path, download_url) for each zip file found
+        - filename: just the base filename (e.g., "file.zip")
+        - relative_path: full path including subdirs (e.g., "2025/file.zip")
+        - download_url: the GitHub download URL
     """
     zip_files = []
     
@@ -69,7 +72,7 @@ def recursively_find_zip_files(api_url: str, base_path: str = "") -> List[Tuple[
             if item_type == "file" and item_name.endswith(".zip"):
                 # Found a zip file
                 relative_path = f"{base_path}/{item_name}" if base_path else item_name
-                zip_files.append((relative_path, item["download_url"]))
+                zip_files.append((item_name, relative_path, item["download_url"]))
             
             elif item_type == "dir":
                 # Recursively search subdirectory
