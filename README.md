@@ -26,7 +26,7 @@ The dataset includes:
 ## 🚀 How to Use
 
 ### Step 1: Import the Notebook
-1. Download the Notebook from this repo
+1. Download the Python Notebook (simple_orchestrator) from this repo, notice, it is a pure python notebook and does not require spark
 2. Import it to Fabric Workspace
 
 
