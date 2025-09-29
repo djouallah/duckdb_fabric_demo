@@ -14,13 +14,20 @@ import threading
 
 
 def is_github_tree_url(url: str) -> bool:
-    """Check if URL is a GitHub  (directory) URL."""
-    return url.startswith("https://github.com/") and "/tree/" in url
+    """Check if URL is a GitHub (directory) URL."""
+    clean_url = url.rstrip('/*')
+    return clean_url.startswith("https://github.com/") and "/tree/" in clean_url
+
+
+def is_glob_pattern(url: str) -> bool:
+    """Check if URL ends with glob pattern /*."""
+    return url.endswith('/*')
 
 
 def github_tree_to_api_url(url: str) -> str:
     """Convert GitHub tree URL to GitHub API contents URL."""
-    parts = url.replace("https://github.com/", "", 1).split("/", 3)
+    clean_url = url.rstrip('/*')
+    parts = clean_url.replace("https://github.com/", "", 1).split("/", 3)
     if len(parts) < 4:
         raise ValueError("Invalid GitHub tree URL")
     user, repo, tree, branch_path = parts
@@ -32,6 +39,51 @@ def github_tree_to_api_url(url: str) -> str:
     return f"https://api.github.com/repos/{user}/{repo}/contents/{path}?ref={branch}"
 
 
+def recursively_find_zip_files(api_url: str, base_path: str = "") -> List[Tuple[str, str]]:
+    """
+    Recursively find all .zip files in a GitHub directory and subdirectories.
+    
+    Args:
+        api_url: GitHub API URL for the directory
+        base_path: Relative path prefix for nested directories
+    
+    Returns:
+        List of tuples (relative_path, download_url) for each zip file found
+    """
+    zip_files = []
+    
+    try:
+        resp = requests.get(api_url, timeout=30)
+        if not resp.ok:
+            print(f"Warning: Failed to fetch {api_url}: HTTP {resp.status_code}")
+            return zip_files
+        
+        items = resp.json()
+        if not isinstance(items, list):
+            return zip_files
+        
+        for item in items:
+            item_name = item.get("name", "")
+            item_type = item.get("type", "")
+            
+            if item_type == "file" and item_name.endswith(".zip"):
+                # Found a zip file
+                relative_path = f"{base_path}/{item_name}" if base_path else item_name
+                zip_files.append((relative_path, item["download_url"]))
+            
+            elif item_type == "dir":
+                # Recursively search subdirectory
+                subdir_url = item.get("url")
+                if subdir_url:
+                    subdir_path = f"{base_path}/{item_name}" if base_path else item_name
+                    zip_files.extend(recursively_find_zip_files(subdir_url, subdir_path))
+    
+    except Exception as e:
+        print(f"Error scanning directory {api_url}: {e}")
+    
+    return zip_files
+
+
 def scraping(urls: List[str], folders: List[str], totalfiles: int, ws: str, lh: str, max_workers: int) -> int:
     """
     Optimized download function using obstore for OneLake operations.
@@ -39,6 +91,7 @@ def scraping(urls: List[str], folders: List[str], totalfiles: int, ws: str, lh: 
     Supports:
       - Regular HTML directory listings (original behavior)
       - GitHub tree URLs (e.g., https://github.com/user/repo/tree/branch/path)
+      - GitHub tree URLs with glob pattern (e.g., https://github.com/user/repo/tree/branch/path/*)
 
     Returns:
         int: 1 if files were successfully downloaded, 0 if error or no new files
@@ -95,17 +148,25 @@ def scraping(urls: List[str], folders: List[str], totalfiles: int, ws: str, lh: 
             if is_github_tree_url(url):
                 # Use GitHub API to list directory contents
                 api_url = github_tree_to_api_url(url)
-                api_resp = requests.get(api_url, timeout=30)
-                if not api_resp.ok:
-                    return f"{url} - GitHub API error: {api_resp.status_code}", 0
-                items = api_resp.json()
-                if not isinstance(items, list):
-                    return f"{url} - Not a directory (GitHub API returned file or error)", 0
+                
+                if is_glob_pattern(url):
+                    # Recursive search for all zip files in subdirectories
+                    zip_files_info = recursively_find_zip_files(api_url)
+                    if not zip_files_info:
+                        return f"{url} - No zip files found in directory tree", 0
+                else:
+                    # Single directory search (original behavior)
+                    api_resp = requests.get(api_url, timeout=30)
+                    if not api_resp.ok:
+                        return f"{url} - GitHub API error: {api_resp.status_code}", 0
+                    items = api_resp.json()
+                    if not isinstance(items, list):
+                        return f"{url} - Not a directory (GitHub API returned file or error)", 0
 
-                zip_files_info = []
-                for item in items:
-                    if item.get("type") == "file" and item.get("name", "").endswith(".zip"):
-                        zip_files_info.append((item["name"], item["download_url"]))
+                    zip_files_info = []
+                    for item in items:
+                        if item.get("type") == "file" and item.get("name", "").endswith(".zip"):
+                            zip_files_info.append((item["name"], item["download_url"]))
                 
                 zip_files_info.sort(key=lambda x: x[0], reverse=True)
                 all_files = [name for name, _ in zip_files_info]
