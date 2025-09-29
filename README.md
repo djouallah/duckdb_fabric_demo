@@ -43,6 +43,10 @@ Before running the notebook, you need to configure it for your environment:
 4. **⚠️ IMPORTANT**: Ensure none of these names contain spaces
    - Use underscores instead: `my_workspace` not `my workspace`
 
+     <img width="1352" height="193" alt="image" src="https://github.com/user-attachments/assets/c26546a7-29e3-49a3-93ba-d73724bc27e3" />
+
+
+
 ### Step 3: Run the Notebook
 
 1. After updating the parameters, click **Run All**
