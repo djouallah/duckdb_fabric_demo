@@ -3,8 +3,8 @@ SET VARIABLE list_of_files_scada_today =
 (
   WITH xxxx AS (
     SELECT
-      concat('abfss://$ws@onelake.dfs.fabric.microsoft.com/$lh.Lakehouse/Files/', extracted_filepath) AS file
-    FROM 'abfss://$ws@onelake.dfs.fabric.microsoft.com/$lh.Lakehouse/Files/Reports/Current/Dispatch_SCADA/download_log.csv'
+      concat('/lakehouse/default/Files/', extracted_filepath) AS file
+    FROM '/lakehouse/default/Files/Reports/Current/Dispatch_SCADA/download_log.csv'
     WHERE parse_filename(extracted_filepath) NOT IN (SELECT DISTINCT file FROM scada_today)
     ORDER BY file
     LIMIT 500
