@@ -77,6 +77,9 @@ Setting concurrency to 1 means only one copy of the pipeline runs at any time. T
 - Ensures data consistency and accuracy
 - Allows the incremental load process to work correctly
 
+  <img width="836" height="257" alt="image" src="https://github.com/user-attachments/assets/4ef043b8-fc33-466e-905b-f246b0819aca" />
+
+
 ## 📊 Next Steps After Setup
 
 Once your data is loading:
@@ -101,6 +104,11 @@ Once your data is loading:
 - [Getting Started with Fabric](https://learn.microsoft.com/en-us/fabric/get-started/)
 - [Working with Python Notebooks](https://learn.microsoft.com/en-us/fabric/data-engineering/using-python-experience-on-notebook)
 - [Creating Data Pipelines](https://learn.microsoft.com/en-us/fabric/data-factory/create-first-pipeline-with-sample-data)
+
+### Main Python packages
+- [DuckDB, running SQL Queries](https://duckdb.org/)
+- [Delta_rs, Writing Delta](https://delta-io.github.io/delta-rs/)
+- [Obstore, Interacting with Onelake Files](https://github.com/developmentseed/obstore)
 
 ### Australian Energy Market
 - [AEMO Official Website](https://aemo.com.au/)
