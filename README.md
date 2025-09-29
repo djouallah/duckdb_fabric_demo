@@ -99,9 +99,8 @@ Once your data is loading:
 
 ### Microsoft Fabric Documentation
 - [Getting Started with Fabric](https://learn.microsoft.com/en-us/fabric/get-started/)
-- [Working with Notebooks](https://learn.microsoft.com/en-us/fabric/data-engineering/how-to-use-notebook)
+- [Working with Python Notebooks](https://learn.microsoft.com/en-us/fabric/data-engineering/using-python-experience-on-notebook)
 - [Creating Data Pipelines](https://learn.microsoft.com/en-us/fabric/data-factory/create-first-pipeline-with-sample-data)
-- [Pipeline Concurrency Settings](https://learn.microsoft.com/en-us/fabric/data-factory/pipeline-activity-settings)
 
 ### Australian Energy Market
 - [AEMO Official Website](https://aemo.com.au/)
