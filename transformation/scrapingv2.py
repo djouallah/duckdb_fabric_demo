@@ -12,7 +12,6 @@ import obstore
 from obstore.store import from_url
 import threading
 
-
 def is_github_tree_url(url: str) -> bool:
     """Check if URL is a GitHub (directory) URL."""
     clean_url = url.rstrip('/*')
