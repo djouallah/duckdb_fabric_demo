@@ -87,7 +87,7 @@ def recursively_find_zip_files(api_url: str, base_path: str = "") -> List[Tuple[
     return zip_files
 
 
-def scrapingv3(urls: List[str], folders: List[str], totalfiles: int, ws: str, lh: str, max_workers: int, flush_interval: int = 300) -> int:
+def scrapingv3(urls: List[str], folders: List[str], totalfiles: int, ws: str, lh: str, max_workers: int, flush_interval: int = 70) -> int:
     """
     Optimized download function using obstore for OneLake operations.
 
