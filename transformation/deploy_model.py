@@ -1,0 +1,232 @@
+import sempy_labs as labs
+from sempy_labs.tom import TOMWrapper
+import requests
+import json
+import notebookutils
+
+def check_dataset_exists(dataset_name, workspace_id):
+    """
+    Check if a dataset already exists in the workspace
+    
+    Args:
+        dataset_name: Name of the dataset to check
+        workspace_id: Workspace ID
+    
+    Returns:
+        Boolean indicating if dataset exists
+    """
+    try:
+        from sempy.fabric import list_datasets
+        
+        datasets = list_datasets(workspace=workspace_id)
+        dataset_exists = dataset_name in datasets['Dataset Name'].values
+        
+        if dataset_exists:
+            print(f"⚠️  Dataset '{dataset_name}' already exists in this workspace")
+            return True
+        else:
+            print(f"✓ Dataset name '{dataset_name}' is available")
+            return False
+            
+    except Exception as e:
+        print(f"⚠️  Could not check for existing dataset: {str(e)}")
+        return False
+
+
+def get_workspace_id():
+    """
+    Get the current workspace ID automatically from Fabric context
+    
+    Returns:
+        Workspace ID (GUID)
+    """
+    try:
+        workspace_id = notebookutils.runtime.context.get("currentWorkspaceId")
+        if not workspace_id:
+            raise ValueError("Could not retrieve workspace ID from context")
+        return workspace_id
+    except Exception as e:
+        print(f"❌ Error getting workspace ID: {str(e)}")
+        raise
+
+
+def get_lakehouse_id(lakehouse_name):
+    """
+    Get lakehouse ID by name using notebookutils
+    
+    Args:
+        lakehouse_name: Name of the lakehouse
+    
+    Returns:
+        Lakehouse ID (GUID)
+    """
+    try:
+        lakehouse_artifact = notebookutils.lakehouse.get(lakehouse_name)
+        lakehouse_id = lakehouse_artifact.id
+        print(f"✓ Found lakehouse '{lakehouse_name}': {lakehouse_id}")
+        return lakehouse_id
+        
+    except Exception as e:
+        print(f"❌ Error finding lakehouse '{lakehouse_name}': {str(e)}")
+        raise
+
+
+def download_bim_from_github(url):
+    """
+    Download BIM file from GitHub repository
+    
+    Args:
+        url: GitHub raw content URL
+    
+    Returns:
+        Dictionary containing BIM content
+    """
+    print(f"Downloading BIM file from GitHub...")
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        bim_content = response.json()
+        print(f"✓ Successfully downloaded BIM file")
+        print(f"  - Tables: {len(bim_content.get('model', {}).get('tables', []))}")
+        print(f"  - Relationships: {len(bim_content.get('model', {}).get('relationships', []))}")
+        return bim_content
+    except Exception as e:
+        print(f"❌ Failed to download BIM file: {str(e)}")
+        raise
+
+
+def update_lakehouse_source(bim_content, workspace_id, lakehouse_id):
+    """
+    Update the DirectLake data source with workspace and lakehouse IDs
+    
+    Args:
+        bim_content: Dictionary containing the BIM content
+        workspace_id: Target workspace GUID
+        lakehouse_id: Target lakehouse GUID
+    
+    Returns:
+        Modified BIM content
+    """
+    new_url = f"https://onelake.dfs.fabric.microsoft.com/{workspace_id}/{lakehouse_id}"
+    
+    if 'model' in bim_content and 'expressions' in bim_content['model']:
+        for expr in bim_content['model']['expressions']:
+            if expr['name'] == 'DirectLake - temp':
+                expr['expression'] = [
+                    "let",
+                    f"    Source = AzureStorage.DataLake(\"{new_url}\", [HierarchicalNavigation=true])",
+                    "in",
+                    "    Source"
+                ]
+                print(f"✓ Updated DirectLake source")
+                print(f"  - New URL: {new_url}")
+                return bim_content
+    
+    raise ValueError("DirectLake expression 'DirectLake - temp' not found in BIM file")
+
+
+def deploy_model(lakehouse_name, dataset_name, bim_url):
+    """
+    Main deployment function
+    
+    Args:
+        lakehouse_name: Name of the lakehouse to connect to
+        dataset_name: Name for the deployed semantic model
+        bim_url: URL to the BIM file on GitHub
+    
+    Returns:
+        1 for success, 0 for failure
+    """
+    print("=" * 70)
+    print("Power BI Semantic Model Deployment")
+    print("=" * 70)
+    
+    try:
+        # Step 1: Get workspace ID automatically
+        print("\n[Step 1/7] Getting workspace information...")
+        workspace_id = get_workspace_id()
+        print(f"✓ Workspace ID: {workspace_id}")
+        
+        # Step 2: Check if dataset already exists
+        print(f"\n[Step 2/7] Checking if dataset '{dataset_name}' exists...")
+        if check_dataset_exists(dataset_name, workspace_id):
+            print(f"\n❌ Dataset '{dataset_name}' already exists in this workspace.")
+            print(f"   Please use a different DATASET_NAME or delete the existing dataset.")
+            print("=" * 70)
+            return 0
+        
+        # Step 3: Get lakehouse ID
+        print(f"\n[Step 3/7] Finding lakehouse '{lakehouse_name}'...")
+        lakehouse_id = get_lakehouse_id(lakehouse_name)
+        
+        # Step 4: Download BIM from GitHub
+        print("\n[Step 4/7] Downloading BIM file from GitHub...")
+        bim_content = download_bim_from_github(bim_url)
+        
+        # Step 5: Update lakehouse connection
+        print("\n[Step 5/7] Updating DirectLake connection...")
+        modified_bim = update_lakehouse_source(bim_content, workspace_id, lakehouse_id)
+        
+        # Update model name
+        modified_bim['name'] = DATASET_NAME
+        modified_bim['id'] = DATASET_NAME
+        print(f"✓ Set model name to: {DATASET_NAME}")
+        
+        # Step 5: Deploy to Fabric workspace
+        print("\n[Step 5/5] Deploying semantic model...")
+        print("   This may take a moment...")
+        
+        # Deploy using create_semantic_model_from_bim
+        labs.create_semantic_model_from_bim(
+            dataset=DATASET_NAME,
+            bim_file=modified_bim,
+            workspace=workspace_id
+        )
+        
+        print(f"✓ Successfully deployed semantic model")
+        
+        # Step 6: Refresh the model
+        print("\n[Step 6/6] Refreshing semantic model...")
+        print("   Loading data from lakehouse...")
+        
+        labs.refresh_semantic_model(
+            dataset=DATASET_NAME,
+            workspace=workspace_id
+        )
+        
+        print(f"✓ Successfully refreshed semantic model")
+        
+        print("\n" + "=" * 70)
+        print("🎉 Deployment Completed Successfully!")
+        print("=" * 70)
+        print(f"\nDataset Name:     {DATASET_NAME}")
+        print(f"Workspace ID:     {workspace_id}")
+        print(f"Lakehouse:        {LAKEHOUSE_NAME}")
+        print(f"Lakehouse ID:     {lakehouse_id}")
+        print("\n✓ Your semantic model is now ready to use in Power BI!")
+        print("=" * 70)
+        
+        return {
+            'status': 'success',
+            'dataset_name': DATASET_NAME,
+            'workspace_id': workspace_id,
+            'lakehouse_name': LAKEHOUSE_NAME,
+            'lakehouse_id': lakehouse_id
+        }
+        
+    except Exception as e:
+        print("\n" + "=" * 70)
+        print("❌ Deployment Failed")
+        print("=" * 70)
+        print(f"Error: {str(e)}")
+        print("\nTroubleshooting:")
+        print(f"1. Verify lakehouse '{lakehouse_name}' exists in this workspace")
+        print("2. Ensure lakehouse contains required tables in 'temp' schema:")
+        print("   - temp.calendar")
+        print("   - temp.duid")
+        print("   - temp.summary")
+        print("   - temp.mstdatetime")
+        print("3. Check you have contributor permissions in the workspace")
+        print("=" * 70)
+        
+        return 0
