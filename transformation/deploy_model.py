@@ -3,6 +3,7 @@ from sempy_labs.tom import TOMWrapper
 import requests
 import json
 import notebookutils
+import time
 
 def check_dataset_exists(dataset_name, workspace_id):
     """
@@ -208,7 +209,7 @@ def update_table_partitions(bim_content, schema_name, expression_name):
     return bim_content
 
 
-def deploy_model(lakehouse_name, schema_name, dataset_name, bim_url):
+def deploy_model(lakehouse_name, schema_name, dataset_name, bim_url, wait_seconds=30):
     """
     Main deployment function
     
@@ -217,6 +218,7 @@ def deploy_model(lakehouse_name, schema_name, dataset_name, bim_url):
         schema_name: Schema name to use (e.g., 'temp', 'dbo', 'aemoo')
         dataset_name: Name for the deployed semantic model
         bim_url: URL to the BIM file on GitHub
+        wait_seconds: Seconds to wait for permission propagation (default: 30)
     
     Returns:
         Dictionary with deployment results or 0 for failure
@@ -274,8 +276,19 @@ def deploy_model(lakehouse_name, schema_name, dataset_name, bim_url):
         
         print(f"✓ Successfully deployed semantic model")
         
-        # Step 8: Refresh the model
-        print("\n[Step 8/8] Refreshing semantic model...")
+        # Step 8: Wait for permission propagation
+        print("\n[Step 8/9] Waiting for permission propagation...")
+        print("   Allowing time for the semantic model to receive lakehouse access...")
+        if wait_seconds > 0:
+            for i in range(wait_seconds, 0, -5):
+                print(f"   ⏳ {i} seconds remaining...")
+                time.sleep(min(5, i))
+            print("✓ Permission propagation wait complete")
+        else:
+            print("✓ Skipping wait (wait_seconds=0)")
+        
+        # Step 9: Refresh the model
+        print("\n[Step 9/9] Refreshing semantic model...")
         print("   Loading data from lakehouse via DirectLake...")
         
         labs.refresh_semantic_model(
