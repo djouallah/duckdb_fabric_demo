@@ -177,23 +177,23 @@ def update_table_partitions(bim_content, schema_name, expression_name):
         for table in bim_content['model']['tables']:
             if 'partitions' in table:
                 for partition in table['partitions']:
-                    # Update schema name but preserve entity name
                     if 'source' in partition:
-                        # Update schemaName if it exists
-                        if 'schemaName' in partition['source']:
-                            partition['source']['schemaName'] = schema_name
-                        
-                        # Update entityName - if it has a dot, replace the schema part
-                        # Otherwise, add the schema prefix
+                        # Get the base entity/table name
                         if 'entityName' in partition['source']:
                             entity_name = partition['source']['entityName']
+                            # Remove any existing schema prefix
                             if '.' in entity_name:
-                                # Has schema prefix already, replace it
                                 table_name = entity_name.split('.')[-1]
-                                partition['source']['entityName'] = f"{schema_name}.{table_name}"
                             else:
-                                # No schema prefix, add it
-                                partition['source']['entityName'] = f"{schema_name}.{entity_name}"
+                                table_name = entity_name
+                            
+                            # Update entityName with new schema
+                            partition['source']['entityName'] = f"{schema_name}.{table_name}"
+                        
+                        # CRITICAL: Remove schemaName property if it exists
+                        # DirectLake uses entityName when schemaName is absent
+                        if 'schemaName' in partition['source']:
+                            del partition['source']['schemaName']
                         
                         # Ensure expressionSource matches the expression name
                         if 'expressionSource' in partition['source']:
@@ -203,6 +203,7 @@ def update_table_partitions(bim_content, schema_name, expression_name):
         print(f"✓ Updated {tables_updated} table partition(s)")
         print(f"  - Schema: '{schema_name}'")
         print(f"  - Expression source: '{expression_name}'")
+        print(f"  - Removed 'schemaName' property (using entityName only)")
     
     return bim_content
 
