@@ -175,26 +175,18 @@ def update_table_partitions(bim_content, schema_name, expression_name):
     """
     if 'model' in bim_content and 'tables' in bim_content['model']:
         tables_updated = 0
+        print(f"Updating partition sources:")
         for table in bim_content['model']['tables']:
             if 'partitions' in table:
                 for partition in table['partitions']:
                     if 'source' in partition:
-                        # Get the base entity/table name
-                        if 'entityName' in partition['source']:
-                            entity_name = partition['source']['entityName']
-                            # Remove any existing schema prefix
-                            if '.' in entity_name:
-                                table_name = entity_name.split('.')[-1]
-                            else:
-                                table_name = entity_name
-                            
-                            # Update entityName with new schema
-                            partition['source']['entityName'] = f"{schema_name}.{table_name}"
-                        
-                        # CRITICAL: Remove schemaName property if it exists
-                        # DirectLake uses entityName when schemaName is absent
+                        # Update schemaName to new schema (keep the property as-is)
                         if 'schemaName' in partition['source']:
-                            del partition['source']['schemaName']
+                            partition['source']['schemaName'] = schema_name
+                        
+                        # Keep entityName as-is (don't modify it at all)
+                        entity_name = partition['source'].get('entityName', 'unknown')
+                        print(f"  {table['name']:15} → {schema_name}.{entity_name}")
                         
                         # Ensure expressionSource matches the expression name
                         if 'expressionSource' in partition['source']:
@@ -204,7 +196,6 @@ def update_table_partitions(bim_content, schema_name, expression_name):
         print(f"✓ Updated {tables_updated} table partition(s)")
         print(f"  - Schema: '{schema_name}'")
         print(f"  - Expression source: '{expression_name}'")
-        print(f"  - Removed 'schemaName' property (using entityName only)")
     
     return bim_content
 
@@ -235,11 +226,47 @@ def deploy_model(lakehouse_name, schema_name, dataset_name, bim_url, wait_second
         
         # Step 2: Check if dataset already exists
         print(f"\n[Step 2/7] Checking if dataset '{dataset_name}' exists...")
-        if check_dataset_exists(dataset_name, workspace_id):
-            print(f"\n❌ Dataset '{dataset_name}' already exists in this workspace.")
-            print(f"   Please use a different DATASET_NAME or delete the existing dataset.")
+        dataset_exists = check_dataset_exists(dataset_name, workspace_id)
+        
+        if dataset_exists:
+            print(f"\n✓ Dataset '{dataset_name}' already exists - skipping deployment")
+            print(f"   Proceeding directly to refresh...")
+            
+            # Skip to refresh
+            print("\n[Step 8/9] Waiting for permission propagation...")
+            print("   Allowing time for any recent changes to propagate...")
+            if wait_seconds > 0:
+                for i in range(wait_seconds, 0, -5):
+                    print(f"   ⏳ {i} seconds remaining...")
+                    time.sleep(min(5, i))
+                print("✓ Wait complete")
+            else:
+                print("✓ Skipping wait (wait_seconds=0)")
+            
+            # Refresh the existing model
+            print("\n[Step 9/9] Refreshing semantic model...")
+            print("   Loading data from lakehouse via DirectLake...")
+            
+            labs.refresh_semantic_model(
+                dataset=dataset_name,
+                workspace=workspace_id
+            )
+            
+            print(f"✓ Successfully refreshed semantic model")
+            
+            print("\n" + "=" * 70)
+            print("🎉 Refresh Completed Successfully!")
             print("=" * 70)
-            return 0
+            print(f"\nDataset Name:     {dataset_name}")
+            print(f"Workspace ID:     {workspace_id}")
+            print("\n✓ Your semantic model has been refreshed!")
+            print("=" * 70)
+            
+            return {
+                'status': 'refreshed',
+                'dataset_name': dataset_name,
+                'workspace_id': workspace_id
+            }
         
         # Step 3: Get lakehouse ID
         print(f"\n[Step 3/7] Finding lakehouse '{lakehouse_name}'...")
