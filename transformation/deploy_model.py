@@ -71,6 +71,35 @@ def get_lakehouse_id(lakehouse_name):
         raise
 
 
+def list_required_tables(bim_content, schema_name):
+    """
+    List all tables that will be required from the BIM file
+    
+    Args:
+        bim_content: Dictionary containing the BIM content
+        schema_name: Schema name that will be used
+    
+    Returns:
+        List of required table names
+    """
+    required_tables = []
+    if 'model' in bim_content and 'tables' in bim_content['model']:
+        for table in bim_content['model']['tables']:
+            if 'partitions' in table:
+                for partition in table['partitions']:
+                    if 'source' in partition and 'entityName' in partition['source']:
+                        entity_name = partition['source']['entityName']
+                        table_name = entity_name.split('.')[-1]
+                        required_tables.append(table_name)
+    
+    if required_tables:
+        print(f"Required tables in '{schema_name}' schema:")
+        for table in required_tables:
+            print(f"  - {schema_name}.{table}")
+    
+    return required_tables
+
+
 def download_bim_from_github(url):
     """
     Download BIM file from GitHub repository
@@ -148,17 +177,28 @@ def update_table_partitions(bim_content, schema_name, expression_name):
         for table in bim_content['model']['tables']:
             if 'partitions' in table:
                 for partition in table['partitions']:
-                    # Update entity name to use new schema
-                    if 'source' in partition and 'entityName' in partition['source']:
-                        old_entity = partition['source']['entityName']
-                        # Extract table name (everything after the last dot)
-                        table_name = old_entity.split('.')[-1]
-                        partition['source']['entityName'] = f"{schema_name}.{table_name}"
+                    # Update schema name but preserve entity name
+                    if 'source' in partition:
+                        # Update schemaName if it exists
+                        if 'schemaName' in partition['source']:
+                            partition['source']['schemaName'] = schema_name
                         
-                    # Ensure expressionSource matches the expression name
-                    if 'source' in partition and 'expressionSource' in partition['source']:
-                        partition['source']['expressionSource'] = expression_name
-                        tables_updated += 1
+                        # Update entityName - if it has a dot, replace the schema part
+                        # Otherwise, add the schema prefix
+                        if 'entityName' in partition['source']:
+                            entity_name = partition['source']['entityName']
+                            if '.' in entity_name:
+                                # Has schema prefix already, replace it
+                                table_name = entity_name.split('.')[-1]
+                                partition['source']['entityName'] = f"{schema_name}.{table_name}"
+                            else:
+                                # No schema prefix, add it
+                                partition['source']['entityName'] = f"{schema_name}.{entity_name}"
+                        
+                        # Ensure expressionSource matches the expression name
+                        if 'expressionSource' in partition['source']:
+                            partition['source']['expressionSource'] = expression_name
+                            tables_updated += 1
         
         print(f"✓ Updated {tables_updated} table partition(s)")
         print(f"  - Schema: '{schema_name}'")
@@ -167,15 +207,15 @@ def update_table_partitions(bim_content, schema_name, expression_name):
     return bim_content
 
 
-def deploy_model(lakehouse_name,schema_name, dataset_name,bim_url ):
+def deploy_model(lakehouse_name, schema_name, dataset_name, bim_url):
     """
     Main deployment function
     
     Args:
         lakehouse_name: Name of the lakehouse to connect to
+        schema_name: Schema name to use (e.g., 'temp', 'dbo', 'aemoo')
         dataset_name: Name for the deployed semantic model
         bim_url: URL to the BIM file on GitHub
-        schema_name: Schema name to use (default: 'temp')
     
     Returns:
         Dictionary with deployment results or 0 for failure
@@ -206,8 +246,12 @@ def deploy_model(lakehouse_name,schema_name, dataset_name,bim_url ):
         print("\n[Step 4/7] Downloading BIM file from GitHub...")
         bim_content = download_bim_from_github(bim_url)
         
-        # Step 5: Update lakehouse connection and schema
-        print(f"\n[Step 5/7] Updating DirectLake connection and schema...")
+        # Step 5: Show required tables
+        print(f"\n[Step 5/7] Listing required tables...")
+        list_required_tables(bim_content, schema_name)
+        
+        # Step 6: Update lakehouse connection and schema
+        print(f"\n[Step 6/7] Updating DirectLake connection and schema...")
         modified_bim, expression_name = update_lakehouse_source(bim_content, workspace_id, lakehouse_id, schema_name)
         modified_bim = update_table_partitions(modified_bim, schema_name, expression_name)
         
@@ -216,8 +260,8 @@ def deploy_model(lakehouse_name,schema_name, dataset_name,bim_url ):
         modified_bim['id'] = dataset_name
         print(f"✓ Set model name to: {dataset_name}")
         
-        # Step 6: Deploy to Fabric workspace
-        print("\n[Step 6/7] Deploying semantic model...")
+        # Step 7: Deploy to Fabric workspace
+        print("\n[Step 7/7] Deploying semantic model...")
         print("   This may take a moment...")
         
         # Deploy using create_semantic_model_from_bim
@@ -229,9 +273,9 @@ def deploy_model(lakehouse_name,schema_name, dataset_name,bim_url ):
         
         print(f"✓ Successfully deployed semantic model")
         
-        # Step 7: Refresh the model
-        print("\n[Step 7/7] Refreshing semantic model...")
-        print("   Loading data from lakehouse...")
+        # Step 8: Refresh the model
+        print("\n[Step 8/8] Refreshing semantic model...")
+        print("   Loading data from lakehouse via DirectLake...")
         
         labs.refresh_semantic_model(
             dataset=dataset_name,
