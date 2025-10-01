@@ -336,14 +336,7 @@ def deploy_model(lakehouse_name, schema_name, dataset_name, bim_url, wait_second
         print("\n✓ Your semantic model is now ready to use in Power BI!")
         print("=" * 70)
         
-        return {
-            'status': 'success',
-            'dataset_name': dataset_name,
-            'workspace_id': workspace_id,
-            'lakehouse_name': lakehouse_name,
-            'lakehouse_id': lakehouse_id,
-            'schema_name': schema_name
-        }
+        return 1
         
     except Exception as e:
         print("\n" + "=" * 70)
