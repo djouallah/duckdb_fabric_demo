@@ -200,7 +200,7 @@ def update_table_partitions(bim_content, schema_name, expression_name):
     return bim_content
 
 
-def deploy_model(lakehouse_name, schema_name, dataset_name, bim_url, wait_seconds=30):
+def deploy_model(lakehouse_name, schema_name, dataset_name, bim_url, wait_seconds=10):
     """
     Main deployment function
     
