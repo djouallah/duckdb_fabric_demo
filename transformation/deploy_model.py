@@ -168,9 +168,9 @@ def deploy_model(lakehouse_name, dataset_name, bim_url):
         modified_bim = update_lakehouse_source(bim_content, workspace_id, lakehouse_id)
         
         # Update model name
-        modified_bim['name'] = DATASET_NAME
-        modified_bim['id'] = DATASET_NAME
-        print(f"✓ Set model name to: {DATASET_NAME}")
+        modified_bim['name'] = dataset_name
+        modified_bim['id'] = dataset_name
+        print(f"✓ Set model name to: {dataset_name}")
         
         # Step 5: Deploy to Fabric workspace
         print("\n[Step 5/5] Deploying semantic model...")
@@ -178,7 +178,7 @@ def deploy_model(lakehouse_name, dataset_name, bim_url):
         
         # Deploy using create_semantic_model_from_bim
         labs.create_semantic_model_from_bim(
-            dataset=DATASET_NAME,
+            dataset=dataset_name,
             bim_file=modified_bim,
             workspace=workspace_id
         )
@@ -190,7 +190,7 @@ def deploy_model(lakehouse_name, dataset_name, bim_url):
         print("   Loading data from lakehouse...")
         
         labs.refresh_semantic_model(
-            dataset=DATASET_NAME,
+            dataset=dataset_name,
             workspace=workspace_id
         )
         
@@ -199,18 +199,18 @@ def deploy_model(lakehouse_name, dataset_name, bim_url):
         print("\n" + "=" * 70)
         print("🎉 Deployment Completed Successfully!")
         print("=" * 70)
-        print(f"\nDataset Name:     {DATASET_NAME}")
+        print(f"\nDataset Name:     {dataset_name}")
         print(f"Workspace ID:     {workspace_id}")
-        print(f"Lakehouse:        {LAKEHOUSE_NAME}")
+        print(f"Lakehouse:        {lakehouse_name}")
         print(f"Lakehouse ID:     {lakehouse_id}")
         print("\n✓ Your semantic model is now ready to use in Power BI!")
         print("=" * 70)
         
         return {
             'status': 'success',
-            'dataset_name': DATASET_NAME,
+            'dataset_name': dataset_name,
             'workspace_id': workspace_id,
-            'lakehouse_name': LAKEHOUSE_NAME,
+            'lakehouse_name': lakehouse_name,
             'lakehouse_id': lakehouse_id
         }
         
