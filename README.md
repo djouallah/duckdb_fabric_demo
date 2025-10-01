@@ -30,17 +30,15 @@ The dataset includes:
 2. Import it to Fabric Workspace
 
 
-### Step 2: Update Parameters
 
-Before running the notebook, you need to configure it for your environment:
+### Step 2 (optional): Update Parameters
 
-1. Open the notebook in your Fabric workspace
-2. attach the lakehouse ( duckdb read performance from abfss is not great, attaching will give way better performance)
-3. Find the parameters section at the top, where you want to store the delta table
+. Find the parameters section at the top, where you want to store the delta table
 4. Update the following values:
    - **Workspace**: Your Fabric workspace name (no spaces)
    - **Lakehouse**: Your lakehouse name (no spaces)
    - **Schema**: Your schema name (no spaces)
+   - **Semantic Model**: the name of your Semantic Model
 5. **⚠️ IMPORTANT**: Ensure none of these names contain spaces
    - Use underscores instead: `my_workspace` not `my workspace`
 
@@ -50,8 +48,8 @@ Before running the notebook, you need to configure it for your environment:
 
 ### Step 3: Run the Notebook
 
-1. After updating the parameters, click **Run All**
-2. The notebook will load historical data incrementally
+1. click **Run All**
+2. The notebook will load the last 7 days and generate the semantic Mode, afyer that Load historical data incrementally
 3. **Note**: Due to GitHub API rate limits and Fabric's 1-hour notebook token timeout, the data loads progressively
 4. Each run will pick up where it left off - no need to worry about duplicates
 5. Monitor the progress to ensure it completes successfully
@@ -79,15 +77,6 @@ Setting concurrency to 1 means only one copy of the pipeline runs at any time. T
 - Allows the incremental load process to work correctly
 
   <img width="836" height="257" alt="image" src="https://github.com/user-attachments/assets/4ef043b8-fc33-466e-905b-f246b0819aca" />
-
-
-## 📊 Next Steps After Setup
-
-Once your data is loading:
-
-- **Import Power BI Reports**
-- Change parameters in semantic model setting:
- <img width="389" height="492" alt="image" src="https://github.com/user-attachments/assets/abedcb95-d28c-433a-9568-aa034b6d2a91" />
 
 
 
