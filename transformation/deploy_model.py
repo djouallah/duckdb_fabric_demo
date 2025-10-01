@@ -106,36 +106,39 @@ def update_lakehouse_source(bim_content, workspace_id, lakehouse_id, schema_name
         schema_name: Schema name to use (e.g., 'temp', 'dbo', 'staging')
     
     Returns:
-        Modified BIM content
+        Tuple of (modified BIM content, old expression name)
     """
     new_url = f"https://onelake.dfs.fabric.microsoft.com/{workspace_id}/{lakehouse_id}"
     
     if 'model' in bim_content and 'expressions' in bim_content['model']:
         for expr in bim_content['model']['expressions']:
             if expr['name'] == 'DirectLake - temp':
+                old_name = expr['name']
                 expr['expression'] = [
                     "let",
                     f"    Source = AzureStorage.DataLake(\"{new_url}\", [HierarchicalNavigation=true])",
                     "in",
                     "    Source"
                 ]
-                # Update expression name to reflect schema
-                expr['name'] = f'DirectLake - {schema_name}'
+                # Keep the same expression name to avoid breaking partition references
+                # Or update it and return the old name so we can update partitions
                 print(f"✓ Updated DirectLake source")
                 print(f"  - New URL: {new_url}")
                 print(f"  - Schema: {schema_name}")
-                return bim_content
+                print(f"  - Expression name: {old_name}")
+                return bim_content, old_name
     
     raise ValueError("DirectLake expression 'DirectLake - temp' not found in BIM file")
 
 
-def update_table_partitions(bim_content, schema_name):
+def update_table_partitions(bim_content, schema_name, expression_name):
     """
-    Update all table partitions to use the specified schema
+    Update all table partitions to use the specified schema and verify expression source
     
     Args:
         bim_content: Dictionary containing the BIM content
         schema_name: Schema name to use
+        expression_name: Name of the DirectLake expression to reference
     
     Returns:
         Modified BIM content
@@ -145,20 +148,26 @@ def update_table_partitions(bim_content, schema_name):
         for table in bim_content['model']['tables']:
             if 'partitions' in table:
                 for partition in table['partitions']:
+                    # Update entity name to use new schema
                     if 'source' in partition and 'entityName' in partition['source']:
-                        # Update the entity name to use new schema
                         old_entity = partition['source']['entityName']
                         # Extract table name (everything after the last dot)
                         table_name = old_entity.split('.')[-1]
                         partition['source']['entityName'] = f"{schema_name}.{table_name}"
+                        
+                    # Ensure expressionSource matches the expression name
+                    if 'source' in partition and 'expressionSource' in partition['source']:
+                        partition['source']['expressionSource'] = expression_name
                         tables_updated += 1
         
-        print(f"✓ Updated {tables_updated} table partition(s) to use schema '{schema_name}'")
+        print(f"✓ Updated {tables_updated} table partition(s)")
+        print(f"  - Schema: '{schema_name}'")
+        print(f"  - Expression source: '{expression_name}'")
     
     return bim_content
 
 
-def deploy_model(lakehouse_name,schema_name, dataset_name, bim_url):
+def deploy_model(lakehouse_name, dataset_name, bim_url, schema_name='temp'):
     """
     Main deployment function
     
@@ -199,8 +208,8 @@ def deploy_model(lakehouse_name,schema_name, dataset_name, bim_url):
         
         # Step 5: Update lakehouse connection and schema
         print(f"\n[Step 5/7] Updating DirectLake connection and schema...")
-        modified_bim = update_lakehouse_source(bim_content, workspace_id, lakehouse_id, schema_name)
-        modified_bim = update_table_partitions(modified_bim, schema_name)
+        modified_bim, expression_name = update_lakehouse_source(bim_content, workspace_id, lakehouse_id, schema_name)
+        modified_bim = update_table_partitions(modified_bim, schema_name, expression_name)
         
         # Update model name
         modified_bim['name'] = dataset_name
