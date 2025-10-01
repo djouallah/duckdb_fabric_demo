@@ -95,14 +95,15 @@ def download_bim_from_github(url):
         raise
 
 
-def update_lakehouse_source(bim_content, workspace_id, lakehouse_id):
+def update_lakehouse_source(bim_content, workspace_id, lakehouse_id, schema_name):
     """
-    Update the DirectLake data source with workspace and lakehouse IDs
+    Update the DirectLake data source with workspace, lakehouse IDs, and schema name
     
     Args:
         bim_content: Dictionary containing the BIM content
         workspace_id: Target workspace GUID
         lakehouse_id: Target lakehouse GUID
+        schema_name: Schema name to use (e.g., 'temp', 'dbo', 'staging')
     
     Returns:
         Modified BIM content
@@ -118,14 +119,46 @@ def update_lakehouse_source(bim_content, workspace_id, lakehouse_id):
                     "in",
                     "    Source"
                 ]
+                # Update expression name to reflect schema
+                expr['name'] = f'DirectLake - {schema_name}'
                 print(f"✓ Updated DirectLake source")
                 print(f"  - New URL: {new_url}")
+                print(f"  - Schema: {schema_name}")
                 return bim_content
     
     raise ValueError("DirectLake expression 'DirectLake - temp' not found in BIM file")
 
 
-def deploy_model(lakehouse_name, dataset_name, bim_url):
+def update_table_partitions(bim_content, schema_name):
+    """
+    Update all table partitions to use the specified schema
+    
+    Args:
+        bim_content: Dictionary containing the BIM content
+        schema_name: Schema name to use
+    
+    Returns:
+        Modified BIM content
+    """
+    if 'model' in bim_content and 'tables' in bim_content['model']:
+        tables_updated = 0
+        for table in bim_content['model']['tables']:
+            if 'partitions' in table:
+                for partition in table['partitions']:
+                    if 'source' in partition and 'entityName' in partition['source']:
+                        # Update the entity name to use new schema
+                        old_entity = partition['source']['entityName']
+                        # Extract table name (everything after the last dot)
+                        table_name = old_entity.split('.')[-1]
+                        partition['source']['entityName'] = f"{schema_name}.{table_name}"
+                        tables_updated += 1
+        
+        print(f"✓ Updated {tables_updated} table partition(s) to use schema '{schema_name}'")
+    
+    return bim_content
+
+
+def deploy_model(lakehouse_name,schema_name, dataset_name, bim_url):
     """
     Main deployment function
     
@@ -133,9 +166,10 @@ def deploy_model(lakehouse_name, dataset_name, bim_url):
         lakehouse_name: Name of the lakehouse to connect to
         dataset_name: Name for the deployed semantic model
         bim_url: URL to the BIM file on GitHub
+        schema_name: Schema name to use (default: 'temp')
     
     Returns:
-        1 for success, 0 for failure
+        Dictionary with deployment results or 0 for failure
     """
     print("=" * 70)
     print("Power BI Semantic Model Deployment")
@@ -163,17 +197,18 @@ def deploy_model(lakehouse_name, dataset_name, bim_url):
         print("\n[Step 4/7] Downloading BIM file from GitHub...")
         bim_content = download_bim_from_github(bim_url)
         
-        # Step 5: Update lakehouse connection
-        print("\n[Step 5/7] Updating DirectLake connection...")
-        modified_bim = update_lakehouse_source(bim_content, workspace_id, lakehouse_id)
+        # Step 5: Update lakehouse connection and schema
+        print(f"\n[Step 5/7] Updating DirectLake connection and schema...")
+        modified_bim = update_lakehouse_source(bim_content, workspace_id, lakehouse_id, schema_name)
+        modified_bim = update_table_partitions(modified_bim, schema_name)
         
         # Update model name
         modified_bim['name'] = dataset_name
         modified_bim['id'] = dataset_name
         print(f"✓ Set model name to: {dataset_name}")
         
-        # Step 5: Deploy to Fabric workspace
-        print("\n[Step 5/5] Deploying semantic model...")
+        # Step 6: Deploy to Fabric workspace
+        print("\n[Step 6/7] Deploying semantic model...")
         print("   This may take a moment...")
         
         # Deploy using create_semantic_model_from_bim
@@ -185,8 +220,8 @@ def deploy_model(lakehouse_name, dataset_name, bim_url):
         
         print(f"✓ Successfully deployed semantic model")
         
-        # Step 6: Refresh the model
-        print("\n[Step 6/6] Refreshing semantic model...")
+        # Step 7: Refresh the model
+        print("\n[Step 7/7] Refreshing semantic model...")
         print("   Loading data from lakehouse...")
         
         labs.refresh_semantic_model(
@@ -203,6 +238,7 @@ def deploy_model(lakehouse_name, dataset_name, bim_url):
         print(f"Workspace ID:     {workspace_id}")
         print(f"Lakehouse:        {lakehouse_name}")
         print(f"Lakehouse ID:     {lakehouse_id}")
+        print(f"Schema:           {schema_name}")
         print("\n✓ Your semantic model is now ready to use in Power BI!")
         print("=" * 70)
         
@@ -211,7 +247,8 @@ def deploy_model(lakehouse_name, dataset_name, bim_url):
             'dataset_name': dataset_name,
             'workspace_id': workspace_id,
             'lakehouse_name': lakehouse_name,
-            'lakehouse_id': lakehouse_id
+            'lakehouse_id': lakehouse_id,
+            'schema_name': schema_name
         }
         
     except Exception as e:
@@ -221,11 +258,11 @@ def deploy_model(lakehouse_name, dataset_name, bim_url):
         print(f"Error: {str(e)}")
         print("\nTroubleshooting:")
         print(f"1. Verify lakehouse '{lakehouse_name}' exists in this workspace")
-        print("2. Ensure lakehouse contains required tables in 'temp' schema:")
-        print("   - temp.calendar")
-        print("   - temp.duid")
-        print("   - temp.summary")
-        print("   - temp.mstdatetime")
+        print(f"2. Ensure lakehouse contains required tables in '{schema_name}' schema:")
+        print(f"   - {schema_name}.calendar")
+        print(f"   - {schema_name}.duid")
+        print(f"   - {schema_name}.summary")
+        print(f"   - {schema_name}.mstdatetime")
         print("3. Check you have contributor permissions in the workspace")
         print("=" * 70)
         
