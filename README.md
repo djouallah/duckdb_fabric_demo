@@ -108,4 +108,7 @@ The beauty of this approach is that all your data logic is stored in the GitHub 
 
 ## 🔧 How to run Benchmarks
 
-download and run RunLoadTest notebook, it will download the data, create a new semantic model and run the test
+download and run RunLoadTest notebook, it will download the data, create a new lakehouse, download the data, create a new semantic model and run the test
+
+<img width="707" height="284" alt="image" src="https://github.com/user-attachments/assets/fc946768-f82b-46d0-82d9-aeab11d0103c" />
+
