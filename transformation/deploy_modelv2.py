@@ -1,8 +1,10 @@
 import sempy.fabric as fabric
+from sempy.fabric import FabricRestClient
 import requests
 import json
 import notebookutils
 import time
+import base64
 
 def check_dataset_exists(dataset_name, workspace_id):
     """
@@ -194,7 +196,7 @@ def update_table_partitions(bim_content, schema_name, expression_name):
 
 def create_dataset_from_bim(dataset_name, bim_content, workspace_id):
     """
-    Create a semantic model from BIM content using TOM
+    Create a semantic model from BIM content using Fabric REST API
     
     Args:
         dataset_name: Name for the new dataset
@@ -202,24 +204,77 @@ def create_dataset_from_bim(dataset_name, bim_content, workspace_id):
         workspace_id: Target workspace ID
     """
     try:
-        # Convert BIM dict to JSON string
-        bim_json = json.dumps(bim_content)
+        # Initialize REST client
+        client = FabricRestClient()
         
-        # Create the dataset using TOM
-        fabric.create_dataset(
-            dataset=dataset_name,
-            definition=bim_json,
-            workspace=workspace_id
+        # Convert BIM content to JSON string and then to base64
+        bim_json = json.dumps(bim_content, indent=2)
+        bim_base64 = base64.b64encode(bim_json.encode('utf-8')).decode('utf-8')
+        
+        # Create the required definition.pbism file
+        # For TMSL format (model.bim), version must be "1.0"
+        pbism_content = {
+            "version": "1.0"
+        }
+        pbism_json = json.dumps(pbism_content)
+        pbism_base64 = base64.b64encode(pbism_json.encode('utf-8')).decode('utf-8')
+        
+        # Create the request payload according to Fabric API specification
+        payload = {
+            "displayName": dataset_name,
+            "definition": {
+                "parts": [
+                    {
+                        "path": "model.bim",
+                        "payload": bim_base64,
+                        "payloadType": "InlineBase64"
+                    },
+                    {
+                        "path": "definition.pbism",
+                        "payload": pbism_base64,
+                        "payloadType": "InlineBase64"
+                    }
+                ]
+            }
+        }
+        
+        # Create the semantic model using Fabric REST API
+        response = client.post(
+            f"/v1/workspaces/{workspace_id}/semanticModels",
+            json=payload
         )
         
-        print(f"✓ Successfully created semantic model using TOM")
+        print(f"✓ Successfully created semantic model via Fabric REST API")
+        
+        # Check if it's an LRO (Long Running Operation)
+        if response.status_code == 202:
+            operation_id = response.headers.get('x-ms-operation-id')
+            print(f"   Long-running operation initiated: {operation_id}")
+            print(f"   Waiting for operation to complete...")
+            
+            # Poll for completion
+            max_attempts = 30
+            for attempt in range(max_attempts):
+                time.sleep(2)
+                status_response = client.get(f"/v1/operations/{operation_id}")
+                status = status_response.json().get('status')
+                
+                if status == 'Succeeded':
+                    print(f"✓ Operation completed successfully")
+                    break
+                elif status == 'Failed':
+                    error = status_response.json().get('error', {})
+                    raise Exception(f"Operation failed: {error.get('message', 'Unknown error')}")
+                elif attempt == max_attempts - 1:
+                    raise Exception(f"Operation timed out after {max_attempts * 2} seconds")
         
     except Exception as e:
         print(f"❌ Error creating dataset from BIM: {str(e)}")
+        print(f"   Error details: {repr(e)}")
         raise
 
 
-def deploy_modelv2(lakehouse_name, schema_name, dataset_name, bim_url, wait_seconds=10):
+def deploy_modelv2(lakehouse_name, schema_name, dataset_name, bim_url, wait_seconds=5):
     """
     Main deployment function
     
@@ -309,9 +364,9 @@ def deploy_modelv2(lakehouse_name, schema_name, dataset_name, bim_url, wait_seco
         modified_bim['id'] = dataset_name
         print(f"✓ Set model name to: {dataset_name}")
         
-        # Step 7: Deploy to Fabric workspace using TOM
+        # Step 7: Deploy to Fabric workspace using REST API
         print("\n[Step 7/7] Deploying semantic model...")
-        print("   Creating dataset from BIM using TOM...")
+        print("   Creating dataset from BIM using Fabric REST API...")
         
         create_dataset_from_bim(dataset_name, modified_bim, workspace_id)
         
