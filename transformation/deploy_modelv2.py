@@ -13,7 +13,6 @@ def check_dataset_exists(dataset_name, workspace_id):
     Args:
         dataset_name: Name of the dataset to check
         workspace_id: Workspace ID
-    
     Returns:
         Boolean indicating if dataset exists
     """
