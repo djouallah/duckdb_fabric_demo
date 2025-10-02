@@ -336,11 +336,7 @@ def deploy_modelv2(lakehouse_name, schema_name, dataset_name, bim_url, wait_seco
             print("\n✓ Your semantic model has been refreshed!")
             print("=" * 70)
             
-            return {
-                'status': 'refreshed',
-                'dataset_name': dataset_name,
-                'workspace_id': workspace_id
-            }
+            return 1
         
         # Step 3: Get lakehouse ID
         print(f"\n[Step 3/7] Finding lakehouse '{lakehouse_name}'...")
