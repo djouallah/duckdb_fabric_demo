@@ -25,17 +25,12 @@ The dataset includes:
 
 ## 🚀 How to Use
 
-### Step 1: Import the Notebook
+
 1. Download the Python Notebook (simple_orchestrator) from this repo, notice, it is a pure python notebook and does not require spark
 2. Import it to Fabric Workspace
-
-
-
-### Step 2 (optional): Update Parameters
-
-. Find the parameters section at the top, where you want to store the delta table
-4. Update the following values:
-   - **Workspace**: Your Fabric workspace name (no spaces)
+3.  click **Run All**
+4. (optional) Update the following values:
+   - **Workspace**: by default it use the current workspace, but you can use any other workspace
    - **Lakehouse**: Your lakehouse name (no spaces)
    - **Schema**: Your schema name (no spaces)
    - **Semantic Model**: the name of your Semantic Model
@@ -44,17 +39,7 @@ The dataset includes:
 
      <img width="1352" height="193" alt="image" src="https://github.com/user-attachments/assets/c26546a7-29e3-49a3-93ba-d73724bc27e3" />
 
-
-
-### Step 3: Run the Notebook
-
-1. click **Run All**
-2. The notebook will load the last 7 days and generate the semantic Mode, afyer that Load historical data incrementally
-3. **Note**: Due to GitHub API rate limits and Fabric's 1-hour notebook token timeout, the data loads progressively
-4. Each run will pick up where it left off - no need to worry about duplicates
-5. Monitor the progress to ensure it completes successfully
-
-### Step 4: Schedule Automatic Updates
+###  Schedule Automatic Updates
 
 To keep your data updated and continue loading historical data:
 
@@ -121,4 +106,6 @@ The beauty of this approach is that all your data logic is stored in the GitHub 
 <img width="1502" height="763" alt="image" src="https://github.com/user-attachments/assets/4f41bb98-637a-4781-a868-c97b317e4e6b" />
 
 
+## 🔧 How to run Benchmarks
 
+download and run RunLoadTest notebook
