@@ -219,7 +219,7 @@ def create_dataset_from_bim(dataset_name, bim_content, workspace_id):
         raise
 
 
-def deploy_model(lakehouse_name, schema_name, dataset_name, bim_url, wait_seconds=10):
+def deploy_modelv2(lakehouse_name, schema_name, dataset_name, bim_url, wait_seconds=10):
     """
     Main deployment function
     
