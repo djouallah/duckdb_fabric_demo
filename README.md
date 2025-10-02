@@ -108,4 +108,4 @@ The beauty of this approach is that all your data logic is stored in the GitHub 
 
 ## 🔧 How to run Benchmarks
 
-download and run RunLoadTest notebook
+download and run RunLoadTest notebook, it will download the data, create a new semantic model and run the test
