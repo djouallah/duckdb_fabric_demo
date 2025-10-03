@@ -26,7 +26,7 @@ The dataset includes:
 ## 🚀 How to Use
 
 
-1. Download the Python Notebook (simple_orchestrator) from this repo, notice, it is a pure python notebook and does not require spark
+1. Download the Python Notebook (process_data) from this repo, notice, it is a pure python notebook and does not require spark
 2. Import it to Fabric Workspace
 3.  click **Run All**
 4. (optional) Update the following values:
@@ -81,8 +81,7 @@ Setting concurrency to 1 means only one copy of the pipeline runs at any time. T
 - [Creating Data Pipelines](https://learn.microsoft.com/en-us/fabric/data-factory/create-first-pipeline-with-sample-data)
 
 ### Main Python packages
-- [DuckDB, running SQL Queries](https://duckdb.org/)
-- [Delta_rs, Writing Delta](https://delta-io.github.io/delta-rs/)
+- [Duckrun, a simple task runner powered by DuckDB and Delta_rs](https://github.com/djouallah/duckrun)
 - [Obstore, Interacting with Onelake Files](https://github.com/developmentseed/obstore)
 
 ### Australian Energy Market
@@ -108,7 +107,7 @@ The beauty of this approach is that all your data logic is stored in the GitHub 
 
 ## 🔧 How to run Benchmarks
 
-download and run RunLoadTest notebook, it will download the data, create a new lakehouse, download the data, create a new semantic model and run the test
+download and run Benchmarks notebook, it will create a new lakehouse, download the data, create a new semantic model and run the test, store the results and run some analysis
 
 <img width="707" height="284" alt="image" src="https://github.com/user-attachments/assets/fc946768-f82b-46d0-82d9-aeab11d0103c" />
 
